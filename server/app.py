@@ -20,10 +20,105 @@ migrate = Migrate(app, db)
 
 db.init_app(app)
 
+api = Api(app)
 
 @app.route('/')
 def home():
     return ''
+
+class Campers(Resource):
+    def get(self):
+        camper = Camper.query.all()
+        campers = []
+        for camp in camper:
+            camp_dict = camp.to_dict(rules=("-signups",))
+            campers.append(camp_dict)
+        return make_response(campers, 200)
+
+    def post(self):
+        data = request.get_json()
+        try:
+            new_camper = Camper(
+                name=data['name'],
+                age=data['age']
+            )
+        except:
+            return make_response({"errors": ["validation errors"]}, 400)
+        db.session.add(new_camper)
+        db.session.commit()
+        return make_response(new_camper.to_dict(), 200)
+
+
+    
+
+class Camper_ID(Resource):
+    def get(self, id):
+        camper = Camper.query.filter(Camper.id == id).first()
+        if camper:
+            return make_response(camper.to_dict(), 200)
+        else:
+            return make_response({"error": "Camper not found"}, 404)
+
+    def patch(self, id):
+        camper = Camper.query.filter(Camper.id == id).first()
+        data = request.get_json()
+        if camper:
+            try:
+                for attr in data:
+                    setattr(camper, attr, data[attr])
+                db.session.commit()
+                camp_dict = camper.to_dict(rules=('-signups',))
+                return make_response(camp_dict, 202)
+            except:
+                return make_response({"errors": ["validation errors"]}, 400)
+        else:
+            return make_response({"error": "Camnper not found"}, 404)
+                    
+class Activities(Resource):
+    def get(self):
+        activity = Activity.query.all()
+        activities = []
+        for act in activity:
+            act_dict = act.to_dict(rules=("-signups",))
+            activities.append(act_dict)
+        return make_response(activities, 200)
+
+class Activity_ID(Resource):
+    def delete(self, id):
+        activity = Activity.query.filter(Activity.id == id).first()
+        if activity:
+            db.session.delete(activity)
+            db.session.commit()
+            return make_response("", 204)
+        else:
+            return make_response({"error": "Activity not found"}, 404)
+
+class Signups(Resource):
+    def post(self):
+        data = request.get_json()
+        try:
+            new_signup = Signup(
+                camper_id=data['camper_id'],
+                activity_id=data['activity_id'],
+                time=data['time']
+            )
+        except:
+            return make_response({"errors": ["validation errors"]}, 400)
+        db.session.add(new_signup)
+        db.session.commit()
+        return make_response(new_signup.to_dict(), 200)
+
+        
+
+        
+
+
+api.add_resource(Signups, '/signups')
+api.add_resource(Activities, '/activities')
+api.add_resource(Activity_ID, '/activities/<int:id>')
+api.add_resource(Campers, '/campers')
+api.add_resource(Camper_ID, '/campers/<int:id>')
+
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
